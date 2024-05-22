@@ -1,0 +1,427 @@
+-- Querying sample data from the dataset 
+
+SELECT * 
+FROM portfolio.airline_customer_satisfaction
+;
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+-- DATA CLEANING  
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Identifying  duplicates
+
+
+SELECT 
+       *,
+       ROW_NUMBER() OVER (PARTITION BY satisfaction, `Customer Type`, Age, `Type of Travel`, Class, `Flight Distance` ORDER BY (SELECT NULL)) AS row_num
+FROM airline_customer_satisfaction ;
+
+
+WITH duplicates_cte AS 
+(
+    SELECT 
+        *,
+        ROW_NUMBER() OVER (PARTITION BY satisfaction, `Customer Type`, Age, `Type of Travel`, Class, `Flight Distance` ORDER BY (SELECT NULL)) AS row_num
+    FROM airline_customer_satisfaction
+) 
+SELECT satisfaction, `Customer Type`, Age, `Type of Travel`, Class, `Flight Distance`, row_num
+FROM duplicates_cte 
+WHERE row_num >1
+;
+
+-- Removing duplicates 
+
+WITH duplicates_cte AS 
+(
+    SELECT 
+        *,
+        ROW_NUMBER() OVER (PARTITION BY satisfaction, `Customer Type`, Age, `Type of Travel`, Class, `Flight Distance` ORDER BY (SELECT NULL)) AS row_num
+    FROM airline_customer_satisfaction
+)
+DELETE FROM airline_customer_satisfaction
+WHERE (satisfaction, `Customer Type`, Age, `Type of Travel`, Class, `Flight Distance`) IN 
+(
+    SELECT satisfaction, `Customer Type`, Age, `Type of Travel`, Class, `Flight Distance`
+    FROM duplicates_cte
+    WHERE row_num > 1
+);
+
+-- Checking the results 
+WITH duplicates_cte AS 
+(
+    SELECT 
+        *,
+        ROW_NUMBER() OVER (PARTITION BY satisfaction, `Customer Type`, Age, `Type of Travel`, Class, `Flight Distance` ORDER BY (SELECT NULL)) AS row_num
+    FROM airline_customer_satisfaction
+) 
+SELECT satisfaction, `Customer Type`, Age, `Type of Travel`, Class, `Flight Distance`, row_num
+FROM duplicates_cte 
+WHERE row_num >1
+;
+
+-- Standardizing data (removing extra spaces)
+
+SELECT DISTINCT(satisfaction)
+FROM portfolio.airline_customer_satisfaction
+GROUP BY satisfaction
+;
+
+UPDATE airline_customer_satisfaction
+SET satisfaction = 'Satisfied'
+WHERE satisfaction = 'satisfied';
+
+UPDATE airline_customer_satisfaction
+SET satisfaction = 'Dissatisfied'
+WHERE satisfaction = 'dissatisfied';
+
+SELECT `Customer Type`, COUNT(`Customer Type`)
+FROM airline_customer_satisfaction
+GROUP BY `Customer Type`;
+
+UPDATE airline_customer_satisfaction
+SET `Customer Type` = 'Disloyal Customer'
+WHERE `Customer Type` = 'disloyal Customer' ;
+
+SELECT *
+FROM airline_customer_satisfaction
+LIMIT 1000;
+
+SELECT DISTINCT(`Type of Travel`)
+FROM airline_customer_satisfaction ;
+
+
+UPDATE airline_customer_satisfaction
+SET `Type of Travel` = 'Business Travel'
+WHERE `Type of Travel` = 'Business travel';
+
+SELECT DISTINCT(Class)
+FROM airline_customer_satisfaction ;
+
+
+-- Replacing zeros to null as rating is between 1-5 
+
+SELECT *
+FROM airline_customer_satisfaction
+-- WHERE `Seat comfort` = 0
+;
+
+UPDATE airline_customer_satisfaction	
+SET `Seat comfort` = NULL
+WHERE `Seat comfort` = 0;
+
+SELECT *
+FROM airline_customer_satisfaction
+WHERE `Departure/Arrival time convenient` = 0
+OR `Food and drink` = 0;
+
+UPDATE airline_customer_satisfaction
+SET `Departure/Arrival time convenient` = NULL
+WHERE `Departure/Arrival time convenient` = 0
+;
+
+UPDATE airline_customer_satisfaction
+SET `Food and drink` = NULL
+WHERE `Food and drink` = 0;
+
+UPDATE airline_customer_satisfaction
+SET 
+    `Gate location` = NULLIF( `Gate location`, 0),
+    `Inflight entertainment` = NULLIF(`Inflight entertainment`, 0);
+    
+UPDATE airline_customer_satisfaction
+SET 
+	`Online support` = NULLIF(`Online support`,0), 
+	`Ease of Online booking` = NULLIF(`Ease of Online booking`,0), 
+	`On-board service` = NULLIF(`On-board service`,0), 
+	`Leg room service`= NULLIF(`Leg room service`,0), 
+    `Baggage handling` = NULLIF(`Baggage handling`,0), 
+    `Checkin service` = NULLIF(`Checkin service`,0), 
+    `Cleanliness` = NULLIF(`Cleanliness` ,0), 
+    `Online boarding` = NULLIF(`Online boarding`,0), 
+    `Departure Delay in Minutes` = NULLIF(`Departure Delay in Minutes`,0), 
+    `Arrival Delay in Minutes` = NULLIF(`Arrival Delay in Minutes`,0) ;
+    
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------    
+    
+    
+-- DATA EXPLORATORY ANALYSIS 
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- Querying sample data from the dataset 
+
+SELECT *
+FROM airline_customer_satisfaction
+LIMIT 1000; 
+
+
+
+-- Looking at total number of travels 
+
+SELECT COUNT(*)
+FROM airline_customer_satisfaction;
+
+-- Looking at total number of travels by type of travel
+
+SELECT `Type of Travel`,
+	COUNT(*)
+FROM airline_customer_satisfaction
+GROUP BY `Type of Travel`;
+
+-- Looking at total number of travels by class
+
+SELECT Class,
+	COUNT(*)
+FROM airline_customer_satisfaction
+GROUP BY Class;
+
+-- Looking at customer demographics 
+
+SELECT `Customer Type`, 
+		Age, 
+        COUNT(*)
+FROM airline_customer_satisfaction
+GROUP BY `Customer Type`, Age;
+
+-- Count of travels by Loyal Customers across age group
+
+SELECT 
+	CASE
+		WHEN Age < 18 THEN 'Children'
+		WHEN Age < 25 THEN 'Young Adults'
+		WHEN Age < 35 THEN 'Adults'
+		WHEN Age < 55 THEN 'Old Adults'
+        WHEN Age >= 55 THEN 'Seniors'
+		ELSE 'Unknown'
+    END AS Age_groups,
+    COUNT(*) AS Travels_count
+FROM airline_customer_satisfaction
+WHERE `Customer Type` = 'Loyal Customer' 
+GROUP BY Age_groups
+ORDER BY Travels_count DESC ;
+
+-- Count of travels by Disloyal Customers across age group
+
+SELECT 
+	CASE
+		WHEN Age < 18 THEN 'Children'
+		WHEN Age < 25 THEN 'Young Adults'
+		WHEN Age < 35 THEN 'Adults'
+		WHEN Age < 55 THEN 'Old Adults'
+        WHEN Age >= 55 THEN 'Seniors'
+		ELSE 'Unknown'
+    END AS Age_groups,
+    COUNT(*) AS Travels_count
+FROM airline_customer_satisfaction
+WHERE `Customer Type` = 'Disloyal Customer' 
+GROUP BY Age_groups
+ORDER BY Travels_count DESC ;
+
+-- Overall satisfaction by Loyal Customers across age group
+
+SELECT 
+	CASE
+		WHEN Age < 18 THEN 'Children'
+		WHEN Age < 25 THEN 'Young Adults'
+		WHEN Age < 35 THEN 'Adults'
+		WHEN Age < 55 THEN 'Old Adults'
+        WHEN Age >= 55 THEN 'Seniors'
+		ELSE 'Unknown'
+    END AS Age_groups,
+    satisfaction,
+    COUNT(*) AS satisfaction_count
+FROM airline_customer_satisfaction
+WHERE `Customer Type` = 'Loyal Customer' 
+GROUP BY Age_groups, satisfaction
+ORDER BY Age_groups, satisfaction_count DESC;
+
+-- Overall satisfaction by age group 
+
+SELECT 
+     CASE
+         WHEN Age < 18 THEN 'Children'
+         WHEN Age < 25 THEN 'Young Adults'
+         WHEN Age < 35 THEN 'Adults'
+         WHEN Age < 55 THEN 'Old Adults'
+         WHEN Age >= 55 THEN 'Seniors'
+         ELSE 'Unknown'
+     END AS Age_Group,
+     COUNT(CASE WHEN satisfaction = 'satisfied' THEN 1 END) AS Satisfied_Count,
+     COUNT(CASE WHEN satisfaction = 'dissatisfied' THEN 1 END) AS Dissatisfied_Count,
+     COUNT(*) AS Total_Count,
+     ROUND(COUNT(CASE WHEN satisfaction = 'satisfied' THEN 1 END) / COUNT(*) *100, 2) AS Satisfied_Percentage,
+     ROUND(COUNT(CASE WHEN satisfaction = 'dissatisfied' THEN 1 END) / COUNT(*) *100, 2) AS Dissatisfied_Percentage
+ FROM 
+     airline_customer_satisfaction
+ GROUP BY 
+     Age_Group;
+
+
+-- Looking at overall satisfaction by customer type
+
+SELECT 	
+	`Customer Type`,
+    satisfaction, 
+    COUNT(satisfaction) AS overall_satisfaction_count
+FROM airline_customer_satisfaction 
+GROUP BY `Customer Type`, satisfaction
+;
+
+
+WITH satisfaction_count AS 
+(
+SELECT `Customer Type`,
+		COUNT(*) AS total_count,
+        SUM(CASE WHEN satisfaction = 'Satisfied' THEN 1 ELSE 0 END) AS satisfied_count,
+        SUM(CASE WHEN satisfaction = 'Dissatisfied' THEN 1 ELSE 0 END) AS dissatisfied_count
+FROM airline_customer_satisfaction
+GROUP BY `Customer Type`
+)
+SELECT `Customer Type`,
+		total_count,
+        satisfied_count,
+        dissatisfied_count
+FROM satisfaction_count ; 
+
+
+
+-- Overall satisfaction byy customer type
+
+WITH satisfaction_count AS 
+(
+SELECT `Customer Type`,
+		COUNT(*) AS total_count,
+        SUM(CASE WHEN satisfaction = 'Satisfied' THEN 1 ELSE 0 END) AS satisfied_count,
+        SUM(CASE WHEN satisfaction = 'Dissatisfied' THEN 1 ELSE 0 END) AS dissatisfied_count
+FROM airline_customer_satisfaction
+GROUP BY `Customer Type`
+)
+SELECT `Customer Type`,
+		total_count,
+        ROUND((satisfied_count/total_count)*100,2) AS satisfied_percentage,
+        ROUND((dissatisfied_count/total_count)*100,2) AS dissatisfied_percentage
+FROM satisfaction_count ; 
+
+-- Overall satisfaction by travel type
+WITH satisfaction_count AS 
+(
+SELECT `Type of Travel`,
+		COUNT(*) AS total_count,
+        SUM(CASE WHEN satisfaction = 'Satisfied' THEN 1 ELSE 0 END) AS satisfied_count,
+        SUM(CASE WHEN satisfaction = 'Dissatisfied' THEN 1 ELSE 0 END) AS dissatisfied_count
+FROM airline_customer_satisfaction
+GROUP BY `Type of Travel`
+)
+SELECT `Type of Travel`,
+		total_count,
+        satisfied_count,
+        dissatisfied_count
+FROM satisfaction_count ; 
+
+-- Average flight distance by type of travel and class
+
+SELECT *
+FROM airline_customer_satisfaction
+LIMIT 1000; 
+
+SELECT `Type of Travel`,
+	Class,
+	AVG(`Flight Distance`)
+FROM airline_customer_satisfaction
+GROUP BY `Type of Travel`, Class;
+
+-- Overall satisfaction by average flight distance 
+
+SELECT satisfaction,
+	ROUND(AVG(`Flight Distance`),2) AS avg_flight_distance
+FROM airline_customer_satisfaction
+GROUP BY satisfaction
+ORDER BY avg_flight_distance; 
+
+
+-- Average inflight service satisfaction 
+
+SELECT satisfaction,
+	ROUND(AVG(`Seat comfort`),1) avg_seat_comfort,
+    ROUND(AVG(`Food and drink`),1) avg_food_drink,
+    ROUND(AVG(`Inflight wifi service`),1) avg_inflight_wifi,
+    ROUND(AVG(`Inflight entertainment`),1) avg_inflight_entertainment,
+    ROUND(AVG(`Leg room service`),1) avg_leg_room,
+    ROUND(AVG(`Cleanliness`),1) avg_clean
+FROM airline_customer_satisfaction
+GROUP BY satisfaction;
+
+-- Average inflight services satisfaction by travel type
+
+SELECT satisfaction,
+	`Type of Travel`,
+	ROUND(AVG(`Seat comfort`),1) avg_seat_comfort,
+    ROUND(AVG(`Food and drink`),1) avg_food_drink,
+    ROUND(AVG(`Inflight wifi service`),1) avg_inflight_wifi,
+    ROUND(AVG(`Inflight entertainment`),1) avg_inflight_entertainment,
+    ROUND(AVG(`Leg room service`),1) avg_leg_room,
+    ROUND(AVG(`Cleanliness`),1) avg_clean
+FROM airline_customer_satisfaction
+GROUP BY satisfaction, `Type of Travel` ;
+
+
+-- Average departures & arrivals delays by class and type of travel 
+
+SELECT 
+	`Type of Travel`,
+	Class,
+    ROUND(AVG(`Departure Delay in Minutes`),2) AS avg_depart_delays,
+    ROUND(AVG(`Arrival Delay in Minutes`),2) AS avg_arrival_delays
+FROM airline_customer_satisfaction
+WHERE `Departure Delay in Minutes` IS NOT NULL
+AND `Arrival Delay in Minutes` IS NOT NULL
+GROUP BY `Type of Travel`, Class 
+;
+
+
+SELECT *
+FROM airline_customer_satisfaction
+LIMIT 1000; 
+
+-- Average ground service satisfaction 
+
+SELECT 
+	satisfaction,
+    ROUND(AVG(`Gate location`),2) AS avg_gate_location,
+    ROUND(AVG(`On-board service`),2) AS avg_onboard_service,
+    ROUND(AVG(`Baggage handling`),2) AS avg_baggage_handling,
+    ROUND(AVG(`Checkin service`),2) AS avg_checkin
+FROM airline_customer_satisfaction
+WHERE `Gate location` IS NOT NULL
+AND `On-board service` IS NOT NULL
+AND `Baggage handling` IS NOT NULL
+AND `Checkin service`  IS NOT NULL
+GROUP BY satisfaction
+;
+
+-- Average satisfaction with online bookings and support
+
+SELECT 
+    satisfaction,
+    ROUND(AVG(`Ease of Online booking`), 2) AS Avg_Ease_Online_Booking,
+    ROUND(AVG(`Online support`), 2) AS Avg_Online_Support
+FROM 
+    airline_customer_satisfaction
+GROUP BY 
+    satisfaction;
+
+
+-- Average departures & arrivals delays by satisfaction 
+
+SELECT 
+	satisfaction,
+    ROUND(AVG(`Departure Delay in Minutes`),2) AS avg_depart_delays,
+    ROUND(AVG(`Arrival Delay in Minutes`),2) AS avg_arrival_delays
+FROM airline_customer_satisfaction
+WHERE `Departure Delay in Minutes` IS NOT NULL
+AND `Arrival Delay in Minutes` IS NOT NULL
+GROUP BY satisfaction
+;
