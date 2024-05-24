@@ -62,7 +62,7 @@ FROM duplicates_cte
 WHERE row_num >1
 ;
 
--- Standardizing data (removing extra spaces)
+-- Standardizing data
 
 SELECT DISTINCT(satisfaction)
 FROM portfolio.airline_customer_satisfaction
@@ -101,7 +101,8 @@ SELECT DISTINCT(Class)
 FROM airline_customer_satisfaction ;
 
 
--- Replacing zeros to null as rating is between 1-5 
+-- Verifying records with invalid rating (rating between 1-5)
+-- Replace zeros with NULL
 
 SELECT *
 FROM airline_customer_satisfaction
@@ -157,34 +158,60 @@ SELECT *
 FROM airline_customer_satisfaction
 LIMIT 1000; 
 
-
-
 -- Looking at total number of travels 
 
-SELECT COUNT(*)
+SELECT COUNT(*) AS Total_travels
 FROM airline_customer_satisfaction;
 
 -- Looking at total number of travels by type of travel
 
 SELECT `Type of Travel`,
-	COUNT(*)
+	COUNT(*) AS Total_travels
 FROM airline_customer_satisfaction
 GROUP BY `Type of Travel`;
 
--- Looking at total number of travels by class
+-- Total travels percentage by travel type
+
+WITH travel_table AS (
+    SELECT 
+        COUNT(*) AS total_travels,
+        COUNT(CASE WHEN `Type of Travel` = 'Personal Travel' THEN 1 END) AS Personal_travels,
+        COUNT(CASE WHEN `Type of Travel` = 'Business Travel' THEN 1 END) AS Business_travels
+    FROM airline_customer_satisfaction
+)
+SELECT 
+    Total_travels,
+    Personal_travels,
+    Business_travels,
+    ROUND(Personal_travels / Total_travels * 100, 2) AS Percentage_personal_travels,
+    ROUND(Business_travels / Total_travels * 100, 2) AS Percentage_business_travels
+FROM Travel_table;
+
+-- Total number of travels by class
 
 SELECT Class,
-	COUNT(*)
+	COUNT(*) AS Total_travels
 FROM airline_customer_satisfaction
-GROUP BY Class;
+GROUP BY Class
+ORDER BY Class;
 
--- Looking at customer demographics 
+-- Total travels by customer type 
+
+SELECT `Customer Type`, 
+		COUNT(*) AS Total_travels
+FROM airline_customer_satisfaction
+GROUP BY `Customer Type`
+ORDER BY Total_travels;
+
+
+-- Customer demographics by customer type and age
 
 SELECT `Customer Type`, 
 		Age, 
-        COUNT(*)
+        COUNT(*) AS Total_travels
 FROM airline_customer_satisfaction
-GROUP BY `Customer Type`, Age;
+GROUP BY `Customer Type`, Age
+ORDER BY `Customer Type`, Age;
 
 -- Count of travels by Loyal Customers across age group
 
@@ -263,7 +290,7 @@ SELECT
 -- Looking at overall satisfaction by customer type
 
 SELECT 	
-	`Customer Type`,
+    `Customer Type`,
     satisfaction, 
     COUNT(satisfaction) AS overall_satisfaction_count
 FROM airline_customer_satisfaction 
@@ -274,14 +301,14 @@ GROUP BY `Customer Type`, satisfaction
 WITH satisfaction_count AS 
 (
 SELECT `Customer Type`,
-		COUNT(*) AS total_count,
+	COUNT(*) AS total_count,
         SUM(CASE WHEN satisfaction = 'Satisfied' THEN 1 ELSE 0 END) AS satisfied_count,
         SUM(CASE WHEN satisfaction = 'Dissatisfied' THEN 1 ELSE 0 END) AS dissatisfied_count
 FROM airline_customer_satisfaction
 GROUP BY `Customer Type`
 )
 SELECT `Customer Type`,
-		total_count,
+	total_count,
         satisfied_count,
         dissatisfied_count
 FROM satisfaction_count ; 
@@ -293,14 +320,14 @@ FROM satisfaction_count ;
 WITH satisfaction_count AS 
 (
 SELECT `Customer Type`,
-		COUNT(*) AS total_count,
+	COUNT(*) AS total_count,
         SUM(CASE WHEN satisfaction = 'Satisfied' THEN 1 ELSE 0 END) AS satisfied_count,
         SUM(CASE WHEN satisfaction = 'Dissatisfied' THEN 1 ELSE 0 END) AS dissatisfied_count
 FROM airline_customer_satisfaction
 GROUP BY `Customer Type`
 )
 SELECT `Customer Type`,
-		total_count,
+	total_count,
         ROUND((satisfied_count/total_count)*100,2) AS satisfied_percentage,
         ROUND((dissatisfied_count/total_count)*100,2) AS dissatisfied_percentage
 FROM satisfaction_count ; 
@@ -309,14 +336,15 @@ FROM satisfaction_count ;
 WITH satisfaction_count AS 
 (
 SELECT `Type of Travel`,
-		COUNT(*) AS total_count,
+	COUNT(*) AS total_count,
         SUM(CASE WHEN satisfaction = 'Satisfied' THEN 1 ELSE 0 END) AS satisfied_count,
         SUM(CASE WHEN satisfaction = 'Dissatisfied' THEN 1 ELSE 0 END) AS dissatisfied_count
 FROM airline_customer_satisfaction
 GROUP BY `Type of Travel`
 )
-SELECT `Type of Travel`,
-		total_count,
+SELECT 
+	`Type of Travel`,
+	total_count,
         satisfied_count,
         dissatisfied_count
 FROM satisfaction_count ; 
@@ -327,25 +355,29 @@ SELECT *
 FROM airline_customer_satisfaction
 LIMIT 1000; 
 
-SELECT `Type of Travel`,
-	Class,
-	AVG(`Flight Distance`)
+SELECT 
+   `Type of Travel`,
+   Class,
+   ROUND(AVG(`Flight Distance`),2) AS avg_flight_distance
 FROM airline_customer_satisfaction
 GROUP BY `Type of Travel`, Class;
 
 -- Overall satisfaction by average flight distance 
 
-SELECT satisfaction,
-	ROUND(AVG(`Flight Distance`),2) AS avg_flight_distance
+SELECT 
+   satisfaction,
+  `Type of Travel`,
+  ROUND(AVG(`Flight Distance`),2) AS avg_flight_distance
 FROM airline_customer_satisfaction
-GROUP BY satisfaction
+GROUP BY satisfaction, `Type of Travel`
 ORDER BY avg_flight_distance; 
 
 
 -- Average inflight service satisfaction 
 
-SELECT satisfaction,
-	ROUND(AVG(`Seat comfort`),1) avg_seat_comfort,
+SELECT 
+    satisfaction,
+    ROUND(AVG(`Seat comfort`),1) avg_seat_comfort,
     ROUND(AVG(`Food and drink`),1) avg_food_drink,
     ROUND(AVG(`Inflight wifi service`),1) avg_inflight_wifi,
     ROUND(AVG(`Inflight entertainment`),1) avg_inflight_entertainment,
@@ -356,9 +388,10 @@ GROUP BY satisfaction;
 
 -- Average inflight services satisfaction by travel type
 
-SELECT satisfaction,
-	`Type of Travel`,
-	ROUND(AVG(`Seat comfort`),1) avg_seat_comfort,
+SELECT 
+    satisfaction,
+    `Type of Travel`,
+    ROUND(AVG(`Seat comfort`),1) avg_seat_comfort,
     ROUND(AVG(`Food and drink`),1) avg_food_drink,
     ROUND(AVG(`Inflight wifi service`),1) avg_inflight_wifi,
     ROUND(AVG(`Inflight entertainment`),1) avg_inflight_entertainment,
@@ -368,20 +401,6 @@ FROM airline_customer_satisfaction
 GROUP BY satisfaction, `Type of Travel` ;
 
 
--- Average departures & arrivals delays by class and type of travel 
-
-SELECT 
-	`Type of Travel`,
-	Class,
-    ROUND(AVG(`Departure Delay in Minutes`),2) AS avg_depart_delays,
-    ROUND(AVG(`Arrival Delay in Minutes`),2) AS avg_arrival_delays
-FROM airline_customer_satisfaction
-WHERE `Departure Delay in Minutes` IS NOT NULL
-AND `Arrival Delay in Minutes` IS NOT NULL
-GROUP BY `Type of Travel`, Class 
-;
-
-
 SELECT *
 FROM airline_customer_satisfaction
 LIMIT 1000; 
@@ -389,7 +408,7 @@ LIMIT 1000;
 -- Average ground service satisfaction 
 
 SELECT 
-	satisfaction,
+    satisfaction,
     ROUND(AVG(`Gate location`),2) AS avg_gate_location,
     ROUND(AVG(`On-board service`),2) AS avg_onboard_service,
     ROUND(AVG(`Baggage handling`),2) AS avg_baggage_handling,
@@ -417,7 +436,7 @@ GROUP BY
 -- Average departures & arrivals delays by satisfaction 
 
 SELECT 
-	satisfaction,
+    satisfaction,
     ROUND(AVG(`Departure Delay in Minutes`),2) AS avg_depart_delays,
     ROUND(AVG(`Arrival Delay in Minutes`),2) AS avg_arrival_delays
 FROM airline_customer_satisfaction
@@ -425,3 +444,17 @@ WHERE `Departure Delay in Minutes` IS NOT NULL
 AND `Arrival Delay in Minutes` IS NOT NULL
 GROUP BY satisfaction
 ;
+
+-- Average departures & arrivals delays by class and type of travel 
+
+SELECT 
+    `Type of Travel`,
+    Class,
+    ROUND(AVG(`Departure Delay in Minutes`),2) AS avg_depart_delays,
+    ROUND(AVG(`Arrival Delay in Minutes`),2) AS avg_arrival_delays
+FROM airline_customer_satisfaction
+WHERE `Departure Delay in Minutes` IS NOT NULL
+AND `Arrival Delay in Minutes` IS NOT NULL
+GROUP BY `Type of Travel`, Class 
+;
+	
