@@ -163,6 +163,13 @@ LIMIT 1000;
 SELECT COUNT(*) AS Total_travels
 FROM airline_customer_satisfaction;
 
+-- Looking at total number of travels by customer type
+
+SELECT `Customer Type`,
+	COUNT(*)
+FROM airline_customer_satisfaction
+GROUP BY `Customer Type`;
+
 -- Looking at total number of travels by type of travel
 
 SELECT `Type of Travel`,
